@@ -1,5 +1,27 @@
-MC_USER=`whoami`
-MC_PWD_FILE="${TMPDIR-/tmp}/mc-$MC_USER/mc.pwd.$$"
+#! /bin/sh
+
+# ATTENTION! Please keep the consistance with mc_tmpdir().
+
+# if MC_TMPDIR undefined
+test x$MC_TMPDIR = x && MC_TMPDIR=${TMPDIR-/tmp}
+
+# we're going to modify MC_TMPDIR before run of mc
+# then we'll restore it for the case if mc-wrapper.ch was called via .
+MC_TMPDIR_SAVED=$MC_TMPDIR
+
+# append PID to make the directory name unique
+case $MC_TMPDIR in
+    */mc-*)
+        MC_TMPDIR=${MC_TMPDIR}-$$
+        ;;
+    *)  MC_TMPDIR=${MC_TMPDIR}/mc-$$
+        ;;
+esac
+
+export MC_TMPDIR
+
+MC_PWD_FILE="${MC_TMPDIR}/mc.pwd"
+
 @bindir@/mc -P "$MC_PWD_FILE" "$@"
 
 if test -r "$MC_PWD_FILE"; then
@@ -12,4 +34,5 @@ fi
 
 rm -f "$MC_PWD_FILE"
 unset MC_PWD_FILE
-unset MC_USER
+rm -rf $MC_TMPDIR
+export MC_TMPDIR=$MC_TMPDIR_SAVED

@@ -1,10 +1,31 @@
-set MC_USER=`whoami`
+#! /bin/csh
 
-if ($?TMPDIR) then
-	setenv MC_PWD_FILE $TMPDIR/mc-$MC_USER/mc.pwd.$$
-else
-	setenv MC_PWD_FILE /tmp/mc-$MC_USER/mc.pwd.$$
+# ATTENTION! Please keep the consistance with mc_tmpdir().
+
+# if MC_TMPDIR undefined
+if (! $?MC_TMPDIR) then
+    if ($?TMPDIR) then
+        setenv MC_TMPDIR $TMPDIR
+    else
+        setenv MC_TMPDIR /tmp
+    endif
 endif
+
+# we're going to modify MC_TMPDIR before run of mc
+# then we'll restore it for the case if mc-wrapper.ch was called via .
+setenv MC_TMPDIR_SAVED $MC_TMPDIR
+
+# append PID to make the directory name unique
+switch ($MC_TMPDIR)
+    case "*/mc*":
+        setenv MC_TMPDIR $MC_TMPDIR-$$
+        breaksw
+    default:
+        setenv MC_TMPDIR $MC_TMPDIR/mc-$$
+        breaksw
+endsw
+
+setenv MC_PWD_FILE $MC_TMPDIR/mc.pwd
 
 @bindir@/mc -P "$MC_PWD_FILE" $*
 
@@ -18,4 +39,5 @@ endif
 
 rm -f "$MC_PWD_FILE"
 unsetenv MC_PWD_FILE
-unsetenv MC_USER
+rm -rf $MC_TMPDIR
+setenv MC_TMPDIR $MC_TMPDIR_SAVED

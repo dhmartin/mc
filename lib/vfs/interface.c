@@ -781,18 +781,28 @@ mc_tmpdir (void)
         st.st_uid == getuid () && (st.st_mode & 0777) == 0700)
         return tmpdir;
 
+    /* ATTENTION! Please keep the consistance with mc-wrapper.c?sh. */
+
     sys_tmp = getenv ("MC_TMPDIR");
-    if (sys_tmp == NULL || !IS_PATH_SEP (sys_tmp[0]))
+    if (sys_tmp != NULL && IS_PATH_SEP (sys_tmp[0]))
+    {
+        /* MC_TMPDIR is defined in system or in mc-wrapper. Use it as is. */
+        g_snprintf (buffer, sizeof (buffer), "%s", sys_tmp);
+    }
+    else
     {
         sys_tmp = getenv ("TMPDIR");
         if (sys_tmp == NULL || !IS_PATH_SEP (sys_tmp[0]))
             sys_tmp = TMPDIR_DEFAULT;
+
+        g_snprintf (buffer, sizeof (buffer), "%s/mc-%d", sys_tmp, (int) getpid());
     }
 
-    g_snprintf (buffer, sizeof (buffer), "%s/mc-XXXXXX", sys_tmp);
-    tmpdir = g_mkdtemp (buffer);
-    if (tmpdir != NULL)
+    if (mkdir (buffer, S_IRWXU) == 0)
+    {
+        tmpdir = buffer;
         g_setenv ("MC_TMPDIR", tmpdir, TRUE);
+    }
     else
     {
         fprintf (stderr, _("Cannot create temporary directory %s: %s.\n"

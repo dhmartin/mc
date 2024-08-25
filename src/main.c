@@ -259,6 +259,7 @@ main (int argc, char *argv[])
     GError *mcerror = NULL;
     int exit_code = EXIT_FAILURE;
     const char *tmpdir = NULL;
+    gboolean pwd_file_written = FALSE;
 
     mc_global.run_from_parent_mc = !check_sid ();
 
@@ -480,7 +481,32 @@ main (int argc, char *argv[])
     /* At exit, do this before vfs_shut():
        normally, temporary directory should be empty */
     vfs_expire (TRUE);
-    (void) my_rmdir (tmpdir);
+
+    if (mc_global.mc_run_mode == MC_RUN_FULL && mc_args__last_wd_file != NULL
+        && last_wd_string != NULL && !print_last_revert)
+    {
+        int last_wd_fd;
+
+        last_wd_fd = open (mc_args__last_wd_file, O_WRONLY | O_CREAT | O_TRUNC | O_EXCL,
+                           S_IRUSR | S_IWUSR);
+        if (last_wd_fd != -1)
+        {
+            ssize_t ret1;
+            int ret2;
+            ret1 = write (last_wd_fd, last_wd_string, strlen (last_wd_string));
+            ret2 = close (last_wd_fd);
+            (void) ret1;
+            (void) ret2;
+            pwd_file_written = TRUE;
+        }
+    }
+    g_free (last_wd_string);
+
+    /* If tmpdir is likely empty, try to remove it.
+       If mc runs under mc-wrapper, tmpdir isn't empty due to mc.pwd file.
+       mc-wrapper will remove it. */
+    if (!pwd_file_written)
+        (void) my_rmdir (tmpdir);
 
     /* Virtual File System shutdown */
     vfs_shut ();
@@ -503,25 +529,6 @@ main (int argc, char *argv[])
 
     if (mc_global.tty.console_flag != '\0')
         handle_console (CONSOLE_DONE);
-
-    if (mc_global.mc_run_mode == MC_RUN_FULL && mc_args__last_wd_file != NULL
-        && last_wd_string != NULL && !print_last_revert)
-    {
-        int last_wd_fd;
-
-        last_wd_fd = open (mc_args__last_wd_file, O_WRONLY | O_CREAT | O_TRUNC | O_EXCL,
-                           S_IRUSR | S_IWUSR);
-        if (last_wd_fd != -1)
-        {
-            ssize_t ret1;
-            int ret2;
-            ret1 = write (last_wd_fd, last_wd_string, strlen (last_wd_string));
-            ret2 = close (last_wd_fd);
-            (void) ret1;
-            (void) ret2;
-        }
-    }
-    g_free (last_wd_string);
 
     mc_shell_deinit ();
 
